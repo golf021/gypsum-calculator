@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>โปรแกรมคำนวณวัสดุยิปซั่ม</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Sarabun', sans-serif;
+      padding: 20px;
+      margin: 0;
+      background: linear-gradient(to right, #fdfbfb, #ebedee);
+      color: #333;
+    }
+    .container {
+      position: relative;
+      max-width: 1000px;
+      margin: auto;
+      background: white;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    }
+    .logo {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      width: 120px;
+      height: auto;
+      border-radius: 50%;
+    }
+    .pdf-button {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      font-size: 12px;
+      background-color: #e91e63;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    .pdf-button:hover {
+      background-color: #c2185b;
+    }
+    h2 {
+      text-align: center;
+      color: #d81b60;
+      margin-bottom: 20px;
+    }
+    .input-group {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 20px;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    label {
+      font-size: 18px;
+    }
+    input[type="number"] {
+      padding: 10px;
+      font-size: 16px;
+      width: 120px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 7px;
+      text-align: center;
+      font-size: 14px;
+    }
+    th {
+      background-color: #ec407a;
+      color: white;
+    }
+    img {
+      max-width: 50px;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    @media (max-width: 600px) {
+      td, th { font-size: 12px; padding: 6px; }
+      img { max-width: 35px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="pdf-content">
+    <img src="https://i.imgur.com/CvZy970.png" alt="โลโก้" class="logo">
+    <button class="pdf-button" onclick="downloadPDF()">ดาวน์โหลด PDF</button>
+    <h2>โปรแกรมคำนวณวัสดุยิปซั่ม</h2>
+    <div class="input-group">
+      <label>พื้นที่ใช้งาน (ตร.ม.):</label>
+      <input type="number" id="area" value="6" step="0.01" oninput="calculate()" />
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>ภาพ</th>
+          <th>รายการวัสดุ</th>
+          <th>สูตร</th>
+          <th>จำนวนที่ใช้</th>
+          <th>หน่วย</th>
+        </tr>
+      </thead>
+      <tbody id="material-table"></tbody>
+    </table>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script>
+    const materials = [
+      { name: "แผ่นยิปซัม (1200×2400 มม.)", unit: "แผ่น", factor: 0.37, img: "https://imgur.com/Jw4v9my.png", formula: "พื้นที่ x 0.37 = จำนวนแผ่น", round: true },
+      { name: "โครงโปรลายน์ / พลัสลายน์ (4 ม.)", unit: "เส้น", factor: 0.92, img: "https://imgur.com/djxFvEV.png", formula: "พื้นที่ x 0.92 = จำนวนโครง", round: true },
+      { name: "โครงริมโปร / ริมพลัส (2.4 ม.)", unit: "เส้น", factor: 0.32, img: "https://imgur.com/1EgVchM.png", formula: "พื้นที่ x 0.32 = จำนวนโครงริม", round: true },
+      { name: "คลิปล็อค โปร / พลัส", unit: "ตัว", factor: 2.63, img: "https://imgur.com/snnjkJi.png", formula: "พื้นที่ x 2.63 = จำนวนคลิปล็อค", round: true },
+      { name: "ตัวต่อโครง โปร / พลัส", unit: "ตัว", factor: 0.92, img: "https://imgur.com/v2OPPXF.png", formula: "พื้นที่ x 0.92 = จำนวนตัวต่อโครง", round: true },
+      { name: "ขอล็อคโครง โปร / พลัส", unit: "ตัว", factor: 0.87, img: "https://imgur.com/sRd14uY.png", formula: "พื้นที่ x 0.87 = จำนวนขอ", round: true },
+      { name: "สปริงล็อค", unit: "ตัว", factor: 0.87, img: "https://imgur.com/GpSjvWo.png", formula: "พื้นที่ x 0.87 = จำนวนสปริง", round: true },
+      { name: "ลวดแขวนท่อนบน", unit: "เส้น", factor: 0.87, img: "https://imgur.com/r6AXQsc.png", formula: "พื้นที่ x 0.87 = จำนวนลวด", round: true },
+      { name: "ฉากยึดท้องพื้น", unit: "ตัว", factor: 0.87, img: "https://imgur.com/uFDjL1h.png", formula: "พื้นที่ x 0.87 = จำนวนฉาก", round: true },
+      { name: "พุกเหล็ก", unit: "ตัว", factor: 0.87, img: "https://imgur.com/L9S6mkA.png", formula: "พื้นที่ x 0.87 = จำนวนพุก", round: true },
+      { name: "สกรูยิงแผ่นยิปซัม", unit: "ตัว", factor: 14.7, img: "https://imgur.com/C324NyL.png", formula: "พื้นที่ x 14.7 = จำนวนสกรู", round: true },
+      { name: "เทปผ้ายิปซัมปิดรอยต่อ (ม้วนละ 25 ม.)", unit: "ม้วน", factor: 0.05, img: "https://imgur.com/wc5YejN.png", formula: "พื้นที่ x 0.05 = จำนวนเทปผ้า", round: false },
+      { name: "ปูนฉาบรอยต่อ", unit: "ลูก", factor: 0.021, img: "https://imgur.com/hCWqUBu.png", formula: "พื้นที่ x 0.021 = จำนวนปูนฉาบ", round: false },
+      { name: "ตะปูยึดท้องพื้น", unit: "กล่อง", factor: 0.01, img: "https://imgur.com/5dGTP06.png", formula: "พื้นที่ x 0.01 = จำนวนกล่อง", round: true }
+    ];
+
+    function calculate() {
+      const area = parseFloat(document.getElementById("area").value);
+      const tbody = document.getElementById("material-table");
+      tbody.innerHTML = "";
+      materials.forEach(mat => {
+        const qty = area * mat.factor;
+        const displayQty = mat.round ? Math.ceil(qty) : qty.toFixed(2);
+        const row = `<tr>
+          <td><img src="${mat.img}" alt="${mat.name}"></td>
+          <td>${mat.name}</td>
+          <td>${mat.formula}</td>
+          <td>${displayQty}</td>
+          <td>${mat.unit || '-'}</td>
+        </tr>`;
+        tbody.innerHTML += row;
+      });
+    }
+
+    function downloadPDF() {
+      const element = document.getElementById("pdf-content");
+      const opt = {
+        margin: 0.5,
+        filename: 'วัสดุยิปซั่ม.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(element).save();
+    }
+
+    calculate();
+  </script>
+</body>
+</html>
